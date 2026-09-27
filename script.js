@@ -10,10 +10,13 @@
   var header = document.getElementById("site-header");
   var nav = document.getElementById("site-nav");
   var toggle = document.getElementById("menu-toggle");
+  var backdrop = document.getElementById("nav-backdrop");
   var form = document.getElementById("contact-form");
   var success = document.getElementById("form-success");
   var formError = document.getElementById("form-error");
   var prefersReduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var mobileNavQuery = window.matchMedia("(max-width: 960px)");
+  var menuOpen = false;
 
   /* Sticky header: po odscrollování ztmaví pozadí */
   function onScroll() {
@@ -25,18 +28,78 @@
   onScroll();
 
   /* Hamburger menu */
+  function focusableNavItems() {
+    if (!nav) return [];
+    return Array.prototype.slice.call(
+      nav.querySelectorAll('a, button, [tabindex]:not([tabindex="-1"])')
+    );
+  }
+
+  function onKeydown(event) {
+    if (!menuOpen) return;
+
+    if (event.key === "Escape" || event.key === "Esc") {
+      setMenu(false);
+      if (toggle) toggle.focus();
+      return;
+    }
+
+    /* Jednoduchá focus past uvnitř otevřeného menu */
+    if (event.key === "Tab") {
+      var items = focusableNavItems();
+      if (!items.length) return;
+      var first = items[0];
+      var last = items[items.length - 1];
+
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+  }
+
   function setMenu(open) {
     if (!nav || !toggle) return;
+    menuOpen = open;
     nav.classList.toggle("is-open", open);
+    if (backdrop) backdrop.classList.toggle("is-visible", open);
     document.documentElement.classList.toggle("nav-open", open);
     document.body.classList.toggle("nav-open", open);
     toggle.setAttribute("aria-expanded", open ? "true" : "false");
     toggle.setAttribute("aria-label", open ? "Zavřít menu" : "Otevřít menu");
+
+    if (open) {
+      document.addEventListener("keydown", onKeydown);
+      var items = focusableNavItems();
+      if (items.length) items[0].focus();
+    } else {
+      document.removeEventListener("keydown", onKeydown);
+    }
   }
 
   if (toggle) {
     toggle.addEventListener("click", function () {
-      setMenu(!nav.classList.contains("is-open"));
+      setMenu(!menuOpen);
+    });
+  }
+
+  if (backdrop) {
+    backdrop.addEventListener("click", function () {
+      setMenu(false);
+    });
+  }
+
+  /* Zavřít menu, pokud se okno rozšíří zpět na desktop layout */
+  if (mobileNavQuery.addEventListener) {
+    mobileNavQuery.addEventListener("change", function (event) {
+      if (!event.matches) setMenu(false);
+    });
+  } else if (mobileNavQuery.addListener) {
+    mobileNavQuery.addListener(function (event) {
+      if (!event.matches) setMenu(false);
     });
   }
 
